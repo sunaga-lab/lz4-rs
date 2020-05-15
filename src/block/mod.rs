@@ -32,6 +32,8 @@ pub enum CompressionMode {
     DEFAULT,
 }
 
+
+
 /// Compresses the full src buffer using the specified CompressionMode, where None and Some(Default)
 /// are treated equally. If prepend_size is set, the source length will be prepended to the output
 /// buffer.
@@ -42,7 +44,14 @@ pub enum CompressionMode {
 /// Returns std::io::Error with ErrorKind::Other if the compression failed inside the C library. If
 /// this happens, the C api was not able to provide more information about the cause.
 ///
+
 pub fn compress(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool) -> Result<Vec<u8>> {
+    let mut compressed = Vec::new();
+    compress_inplace(src, &mut compressed, mode, prepend_size)?;
+    Ok(compressed)
+}
+
+pub fn compress_inplace(src: &[u8], compressed: &mut Vec<u8>, mode: Option<CompressionMode>, prepend_size: bool) -> Result<()> {
     // 0 iff src too large
     let compress_bound: i32 = unsafe { LZ4_compressBound(src.len() as i32) };
 
@@ -53,14 +62,14 @@ pub fn compress(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool) -
         ));
     }
 
-    let mut compressed: Vec<u8> = vec![
-        0;
+    compressed.resize(
         (if prepend_size {
             compress_bound + 4
         } else {
             compress_bound
-        }) as usize
-    ];
+        }) as usize,
+        0
+    );
 
     let dec_size;
     {
@@ -73,7 +82,7 @@ pub fn compress(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool) -
             compressed[3] = (size >> 24) as u8;
             dst_buf = &mut compressed[4..];
         } else {
-            dst_buf = &mut compressed;
+            dst_buf = &mut compressed[..];
         }
 
         dec_size = match mode {
@@ -110,7 +119,7 @@ pub fn compress(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool) -
     }
 
     compressed.truncate(if prepend_size { dec_size + 4 } else { dec_size } as usize);
-    Ok(compressed)
+    Ok(())
 }
 
 /// Decompresses the src buffer. If uncompressed_size is None, the source length will be read from
