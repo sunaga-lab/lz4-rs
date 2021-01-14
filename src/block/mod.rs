@@ -133,6 +133,12 @@ pub fn compress_inplace(src: &[u8], compressed: &mut Vec<u8>, mode: Option<Compr
 /// library. This is most likely due to malformed input.
 ///
 pub fn decompress(mut src: &[u8], uncompressed_size: Option<i32>) -> Result<Vec<u8>> {
+    let mut decompressed = Vec::new();
+    decompress_inplace(src, &mut decompressed, uncompressed_size)?;
+    Ok(decompressed)
+}
+
+pub fn decompress_inplace(mut src: &[u8], decompressed: &mut Vec<u8> , uncompressed_size: Option<i32>) -> Result<()> {
     let size;
 
     if let Some(s) = uncompressed_size {
@@ -168,7 +174,9 @@ pub fn decompress(mut src: &[u8], uncompressed_size: Option<i32>) -> Result<Vec<
         ));
     }
 
-    let mut decompressed = vec![0u8; size as usize];
+    // let mut decompressed = vec![0u8; size as usize];
+    decompressed.resize(size as usize, 0u8);
+
     let dec_bytes = unsafe {
         LZ4_decompress_safe(
             src.as_ptr() as *const c_char,
@@ -186,7 +194,7 @@ pub fn decompress(mut src: &[u8], uncompressed_size: Option<i32>) -> Result<Vec<
     }
 
     decompressed.truncate(dec_bytes as usize);
-    Ok(decompressed)
+    Ok(())
 }
 
 #[cfg(test)]
